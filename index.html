@@ -1,0 +1,111 @@
+      <!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리 반 알림판</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; color: #333; line-height: 1.6; }
+        .container { max-width: 800px; margin: 20px auto; padding: 15px; }
+        .header { background: linear-gradient(135deg, #4e54c8, #8f94fb); color: white; padding: 30px; text-align: center; border-radius: 12px; margin-bottom: 20px; }
+        .header h1 { font-size: 2.2em; margin: 0; }
+        #widgets-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .widget { background: #fff; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .widget-title { font-size: 0.95em; font-weight: bold; color: #555; margin-bottom: 8px; }
+        .widget-content { font-size: 1.6em; font-weight: bold; color: #4e54c8; }
+        .widget-content.small-text { font-size: 0.9em; line-height: 1.4; white-space: pre-wrap; text-align: left; }
+        .section { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .section-title { font-size: 1.5em; font-weight: bold; color: #4e54c8; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #4e54c8; }
+        .notice-item { border-left: 4px solid #8f94fb; padding: 15px; margin-bottom: 15px; background: #fafafa; border-radius: 4px; }
+        .notice-title { font-size: 1.2em; font-weight: bold; margin-bottom: 5px; }
+        .notice-image { max-width: 100%; border-radius: 8px; margin-top: 10px; }
+        .notice-link { display: inline-block; background-color: #4e54c8; color: white; padding: 8px 15px; border-radius: 20px; margin-top: 10px; text-decoration: none; }
+        .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+        .resource-card { background: #f8f9fa; border-radius: 8px; padding: 15px; text-decoration: none; color: inherit; transition: all 0.2s; }
+        .resource-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .resource-title { font-weight: bold; color: #4e54c8; }
+        .empty-state { text-align: center; color: #777; padding: 30px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header"><h1>🏫 우리 반 알림판</h1></header>
+        <main>
+            <div id="widgets-container"></div>
+            <section class="section">
+                <h2 class="section-title">📢 공지사항 & 할 일</h2>
+                <div id="notices"></div>
+            </section>
+            <section class="section">
+                <h2 class="section-title">📚 우리 반 자료실</h2>
+                <div id="resources" class="resource-grid"></div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const WEB_APP_URL = '4QyLqLN1RSUwXQiUPG0Kd0SitnQWxMcUltAW5G4RGHXc-DxtVdhm0YvkcgORmk-IMg/exec';
+
+        async function loadData() {
+            // 로딩 중 표시
+            document.getElementById('notices').innerHTML = '<p class="empty-state">🔄 데이터를 불러오는 중...</p>';
+            document.getElementById('widgets-container').innerHTML = '';
+            document.getElementById('resources').innerHTML = '<p class="empty-state">🔄 데이터를 불러오는 중...</p>';
+
+            try {
+                const response = await fetch(`${WEB_APP_URL}?v=${new Date().getTime()}`);
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error);
+
+                renderWidgets(data.widgets || []);
+                renderNotices(data.notices || []);
+                renderResources(data.resources || []);
+
+            } catch (error) {
+                document.getElementById('notices').innerHTML = `<p class="empty-state" style="color:red;">❌ 데이터 로드 실패: ${error.message}</p>`;
+            }
+        }
+
+        function renderWidgets(widgets) {
+            const container = document.getElementById('widgets-container');
+            if (widgets.length === 0) { container.style.display = 'none'; return; }
+            container.style.display = 'grid';
+            container.innerHTML = widgets.map(w => {
+                let content = w['내용'] || '';
+                if (w['위젯종류'] === '디데이') {
+                    const diff = Math.ceil((new Date(content) - new Date()) / (1000 * 60 * 60 * 24));
+                    content = diff > 0 ? `D-${diff}` : (diff < 0 ? `D+${-diff}` : 'D-Day');
+                }
+                return `<div class="widget"><div class="widget-title">${w['제목'] || ''}</div><div class="widget-content ${w['위젯종류'] === '급식' ? 'small-text' : ''}">${content.replace(/\n/g, '<br>')}</div></div>`;
+            }).join('');
+        }
+        
+        function renderNotices(notices) {
+            const container = document.getElementById('notices');
+            if (notices.length === 0) { container.innerHTML = '<p class="empty-state">등록된 알림이 없습니다.</p>'; return; }
+            container.innerHTML = notices.map(n => `
+                <div class="notice-item" style="border-left-color: ${n['유형'] === '할일' ? '#ff9800' : '#8f94fb'};">
+                    <h3 class="notice-title">${n['아이콘'] || ''} ${n['제목'] || ''}</h3>
+                    ${n['내용'] ? `<p>${n['내용']}</p>` : ''}
+                    ${n['이미지URL'] ? `<img src="${n['이미지URL']}" class="notice-image">` : ''}
+                    ${n['링크'] ? `<a href="${n['링크']}" class="notice-link" target="_blank">${n['버튼이름'] || '자세히 보기'}</a>` : ''}
+                </div>`).join('');
+        }
+
+        function renderResources(resources) {
+            const container = document.getElementById('resources');
+            if (resources.length === 0) { container.innerHTML = '<p class="empty-state">등록된 자료가 없습니다.</p>'; return; }
+            container.innerHTML = resources.map(r => `
+                <a href="${r['링크']}" class="resource-card" target="_blank">
+                    <h4 class="resource-title">${r['아이콘'] || ''} ${r['자료명'] || ''}</h4>
+                    <p class="resource-desc">${r['설명'] || ''}</p>
+                </a>`).join('');
+        }
+
+        // 페이지 로드 시 데이터 불러오기
+        loadData();
+    </script>
+</body>
+</html>
